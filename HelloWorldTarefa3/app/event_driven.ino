@@ -17,6 +17,7 @@ void button_listen (int pin)
     buttonsUsed[1] = true;
   }
   else
+
   {
     buttonsUsed[2] = true;
   }

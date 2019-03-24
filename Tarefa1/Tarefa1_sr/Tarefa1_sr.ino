@@ -37,7 +37,7 @@ void loop() {
     {
          timee -= 100; 
     }
-    Serial.print("Passou");
+    Serial.print("Passou1");
     timeDebounce[0] = millis();
     debounce[0] = false;
   }
@@ -45,12 +45,13 @@ void loop() {
   {
 
     timee += 100; 
-    Serial.print("Passou");
+    Serial.print("Passou2");
     timeDebounce[1] = millis();
     debounce[1] = false;
   }
   if( digitalRead(BUT1) == LOW && digitalRead(BUT2) == LOW )
   {
+    Serial.print("Passou3");
      digitalWrite(LED1, LOW);
      while(1);
   }
