@@ -5,17 +5,21 @@
 #define LATCH_DIO 4
 #define CLK_DIO 7
 #define DATA_DIO 8
- 
+
+/*Parte do Display*/
 /* Segment byte maps for numbers 0 to 9 */
 const byte SEGMENT_MAP[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90};
 /* Byte maps to select digit 1 to 4 */
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
+/******************/
 
 bool debounce[3] = {true,true,true};
 float timeDebounce[3] = {600,600,600};
 int state = -1;
 int statesLeds[6] = {LED1,LED2,LED3,LED4};
-Horario horario(12,35);
+Horario horarioAtual(0,0);
+Horario alarmeAtual(12,36);
+bool mudaHoras = true;
 
 void setup() {
 
@@ -34,6 +38,8 @@ void setup() {
       pinMode(statesLeds[i], OUTPUT);
       digitalWrite(statesLeds[i],OFF);
   }
+
+  mostraHorario(horarioAtual);
  
 }
 
@@ -55,12 +61,25 @@ bool bouncing(float timeDebounce)
   return false;
 }
 
-void mostraHorario()
+void mostraHorario(Horario horario)
 {
   WriteNumberToSegment(0,horario.getHora()/10);
   WriteNumberToSegment(1,horario.getHora()%10);
   WriteNumberToSegment(2,horario.getMinuto()/10);
   WriteNumberToSegment(3,horario.getMinuto()%10);
+}
+
+void piscaDisplay()
+{
+  if(mudaHoras)
+  {
+    
+  }
+  else
+  {
+    
+  }
+  
 }
 
 void loop() {
@@ -69,7 +88,15 @@ void loop() {
   {
     debounce[i] = bouncing(timeDebounce[i]);
   }
-  if(digitalRead(BUT3) == LOW && debounce[2] )
+  if(digitalRead(BUT3) == LOW && debounce[2] && digitalRead(BUT1) == LOW && debounce[0] )
+  {
+    state = -1;
+    timeDebounce[0] = millis();
+    debounce[0] = false;
+    timeDebounce[2] = millis();
+    debounce[2] = false;
+  }
+  else if(digitalRead(BUT3) == LOW && debounce[2] )
   {
     if(state < 0)
     {
@@ -90,12 +117,60 @@ void loop() {
     timeDebounce[2] = millis();
     debounce[2] = false;
   }
+  else if(digitalRead(BUT1) == LOW && debounce[0] )
+  {
+    mudaHoras= !mudaHoras;
+    timeDebounce[0] = millis();
+    debounce[0] = false;
+  }
   switch(state)
   {
     case -1:
-      mostraHorario();
+      mostraHorario(horarioAtual);
+      break;
+    case 0:
+      mostraHorario(horarioAtual);
+      break;
+    case 1:
+      mostraHorario(alarmeAtual);
+      break;
+    case 2:
+      mostraHorario(horarioAtual);
+      if(digitalRead(BUT2) == LOW && debounce[1])
+      {
+        if (mudaHoras)
+        {
+          horarioAtual.avancaHora();
+        }
+        else
+        {
+          horarioAtual.avancaMinuto();
+        }
+        piscaDisplay();
+        timeDebounce[1] = millis();
+        debounce[1] = false;
+      }
+      break;
+     case 3:
+      mostraHorario(alarmeAtual);
+      if(digitalRead(BUT2) == LOW && debounce[1])
+      {
+        if (mudaHoras)
+        {
+          alarmeAtual.avancaHora();
+        }
+        else
+        {
+          alarmeAtual.avancaMinuto();
+        }
+        piscaDisplay();
+        timeDebounce[1] = millis();
+        debounce[1] = false;
+      }
+      break;
     default:
-      mostraHorario();
+      mostraHorario(horarioAtual);
+    break;
     
   }
 }

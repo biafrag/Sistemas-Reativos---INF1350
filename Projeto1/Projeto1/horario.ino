@@ -34,8 +34,7 @@ void  Horario::avancaHora()
   _hora = (_hora+1)%24;
 }
 
-void  Horario::avancaMinuto(int delta)
+void  Horario::avancaMinuto()
 {
-  _minuto = (_minuto + delta)%60;
+  _minuto = (_minuto + 1)%60;
 }
-

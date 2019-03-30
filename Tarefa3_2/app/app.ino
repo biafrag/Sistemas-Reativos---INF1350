@@ -16,8 +16,8 @@ void button_changed(int p, int v)
 {
   if(lastButtonPressed != -1 && p != lastButtonPressed && (millis() - lastpress) < 600)
   {
-    Serial.println(lastButtonPressed);
-    Serial.println(p);
+     Serial.println(lastButtonPressed);
+     Serial.println(p);
      Serial.println("Passou3");
      digitalWrite(LED1, LOW);
      while(1);

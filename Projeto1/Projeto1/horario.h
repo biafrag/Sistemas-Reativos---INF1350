@@ -16,7 +16,7 @@ public:
 
   void avancaHora();
 
-  void avancaMinuto(int delta);
+  void avancaMinuto();
 
 private:
   int _hora;
