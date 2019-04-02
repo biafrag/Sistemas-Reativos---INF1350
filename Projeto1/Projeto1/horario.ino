@@ -34,7 +34,19 @@ void  Horario::avancaHora()
   _hora = (_hora+1)%24;
 }
 
-void  Horario::avancaMinuto()
+void  Horario::avancaMinuto(bool propagate)
 {
+  if(_minuto == 59 && propagate)
+     avancaHora();
   _minuto = (_minuto + 1)%60;
 }
+
+bool Horario::operator==(const Horario& h) const
+{
+  if(_hora == h.getHora() && _minuto == h.getMinuto())
+  {
+    return true;
+  }
+  return false;
+}
+

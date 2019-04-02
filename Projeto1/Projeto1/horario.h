@@ -16,7 +16,9 @@ public:
 
   void avancaHora();
 
-  void avancaMinuto();
+  void avancaMinuto(bool propagate = false);
+
+  bool operator==(const Horario& h) const;
 
 private:
   int _hora;

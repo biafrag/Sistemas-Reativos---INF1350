@@ -8,7 +8,7 @@
 
 /*Parte do Display*/
 /* Segment byte maps for numbers 0 to 9 */
-const byte SEGMENT_MAP[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90};
+const byte SEGMENT_MAP[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90, 0XFF};
 /* Byte maps to select digit 1 to 4 */
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
 /******************/
@@ -20,6 +20,7 @@ int statesLeds[6] = {LED1,LED2,LED3,LED4};
 Horario horarioAtual(0,0);
 Horario alarmeAtual(12,36);
 bool mudaHoras = true;
+unsigned long tempo = 0;
 
 void setup() {
 
@@ -40,6 +41,7 @@ void setup() {
   }
 
   mostraHorario(horarioAtual);
+  Serial.begin(9600);
  
 }
 
@@ -82,8 +84,21 @@ void piscaDisplay()
   
 }
 
+#define SEG 1000*2 
+void atualizaHorario()
+{
+  unsigned long now = millis();
+  //TODO: Mudar para 60 segundos ao inves de 10
+  if((now - tempo) > SEG )
+  {
+    horarioAtual.avancaMinuto(true);
+    tempo = now;
+  }
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
+  atualizaHorario();
   for(int i = 0; i < 3 ; i++)
   {
     debounce[i] = bouncing(timeDebounce[i]);
@@ -131,12 +146,22 @@ void loop() {
       break;
     case 0:
       mostraHorario(horarioAtual);
+//      if(alarmeAtual == horarioAtual)
+//      {
+//        Serial.println("Alarmeeee");
+//      }
       break;
     case 1:
       mostraHorario(alarmeAtual);
       break;
     case 2:
-      mostraHorario(horarioAtual);
+      if((millis()/500)%3)
+        mostraHorario(horarioAtual);
+      else
+        for (int i = 0;i<2;i++)
+        {
+          WriteNumberToSegment(i, 10);
+        }
       if(digitalRead(BUT2) == LOW && debounce[1])
       {
         if (mudaHoras)
@@ -172,6 +197,7 @@ void loop() {
     default:
       mostraHorario(horarioAtual);
     break;
+    
     
   }
 }
