@@ -123,6 +123,7 @@ void loop() {
     timeDebounce[0] = millis();
     debounce[0] = false;
   }
+  //Switch para saber em que estado está
   switch(state)
   {
     case -1:
