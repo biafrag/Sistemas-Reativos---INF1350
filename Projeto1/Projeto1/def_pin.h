@@ -3,6 +3,9 @@
 #define LED2 12
 #define LED3 11
 #define LED4 10
+#define BUZZER 3
+
+#define SEG 1000*2 
 
 //Definindo os Botões
 #define BUT1 A1

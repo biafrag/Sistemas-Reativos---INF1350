@@ -21,6 +21,8 @@ Horario horarioAtual(0,0);
 Horario alarmeAtual(12,36);
 bool mudaHoras = true;
 unsigned long tempo = 0;
+unsigned long tempoBuzzer = 0;
+bool alarmeTocando = false;
 
 void setup() {
 
@@ -42,6 +44,8 @@ void setup() {
 
   mostraHorario(horarioAtual);
   Serial.begin(9600);
+  pinMode(BUZZER,OUTPUT);
+  digitalWrite(BUZZER,HIGH);
  
 }
 
@@ -71,20 +75,29 @@ void mostraHorario(Horario horario)
   WriteNumberToSegment(3,horario.getMinuto()%10);
 }
 
-void piscaDisplay()
+void piscaDisplay(Horario horario)
 {
-  if(mudaHoras)
+  if((millis()/500)%3)
   {
-    
+    mostraHorario(horario);
   }
   else
   {
-    
+    WriteNumberToSegment(0, 10);
+  }
+  if(mudaHoras)
+  {
+    WriteNumberToSegment(2,horario.getMinuto()/10);
+    WriteNumberToSegment(3,horario.getMinuto()%10);
+  }
+  else
+  {
+     WriteNumberToSegment(0,horario.getHora()/10);
+     WriteNumberToSegment(1,horario.getHora()%10);
   }
   
 }
 
-#define SEG 1000*2 
 void atualizaHorario()
 {
   unsigned long now = millis();
@@ -96,6 +109,33 @@ void atualizaHorario()
   }
 }
 
+void checaAlarme()
+{
+  if(alarmeTocando)
+  {
+    if(millis() - tempoBuzzer > 500)
+    {
+        digitalWrite(BUZZER, HIGH); 
+        alarmeTocando = false;
+    }
+  }
+}
+void editaHorario(Horario& horario)
+{
+  if(digitalRead(BUT2) == LOW && debounce[1])
+  {
+    if (mudaHoras)
+    {
+      horario.avancaHora();
+    }
+    else
+    {
+      horario.avancaMinuto();
+    }
+    timeDebounce[1] = millis();
+    debounce[1] = false;
+  }
+}
 void loop() {
   // put your main code here, to run repeatedly:
   atualizaHorario();
@@ -105,6 +145,8 @@ void loop() {
   }
   if(digitalRead(BUT3) == LOW && debounce[2] && digitalRead(BUT1) == LOW && debounce[0] )
   {
+    //Não funcionando ainda
+    mostraHorario(horarioAtual);
     state = -1;
     timeDebounce[0] = millis();
     debounce[0] = false;
@@ -146,58 +188,27 @@ void loop() {
       break;
     case 0:
       mostraHorario(horarioAtual);
-//      if(alarmeAtual == horarioAtual)
-//      {
-//        Serial.println("Alarmeeee");
-//      }
+      if(alarmeAtual == horarioAtual)
+      {
+        digitalWrite(BUZZER, LOW); 
+        alarmeTocando = true;
+        tempoBuzzer = millis();
+      }
       break;
     case 1:
       mostraHorario(alarmeAtual);
       break;
     case 2:
-      if((millis()/500)%3)
-        mostraHorario(horarioAtual);
-      else
-        for (int i = 0;i<2;i++)
-        {
-          WriteNumberToSegment(i, 10);
-        }
-      if(digitalRead(BUT2) == LOW && debounce[1])
-      {
-        if (mudaHoras)
-        {
-          horarioAtual.avancaHora();
-        }
-        else
-        {
-          horarioAtual.avancaMinuto();
-        }
-        piscaDisplay();
-        timeDebounce[1] = millis();
-        debounce[1] = false;
-      }
+      piscaDisplay(horarioAtual);
+      editaHorario(horarioAtual);
       break;
      case 3:
-      mostraHorario(alarmeAtual);
-      if(digitalRead(BUT2) == LOW && debounce[1])
-      {
-        if (mudaHoras)
-        {
-          alarmeAtual.avancaHora();
-        }
-        else
-        {
-          alarmeAtual.avancaMinuto();
-        }
-        piscaDisplay();
-        timeDebounce[1] = millis();
-        debounce[1] = false;
-      }
+      piscaDisplay(alarmeAtual);
+      editaHorario(alarmeAtual);
       break;
     default:
       mostraHorario(horarioAtual);
-    break;
-    
-    
+    break; 
   }
+  checaAlarme();
 }
