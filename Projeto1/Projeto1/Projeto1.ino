@@ -1,30 +1,72 @@
 #include "def_pin.h"
 #include "horario.h"
 
+#define ON LOW
+#define OFF HIGH
+
+/* Constantes de Tempo: */
+// Duração de um minuto em milisegundos (para facilitar debug)
+#define MIN 1000*2
+// Tempo em milisegundos após o qual consideramos que o botão foi pressionado de novo
+#define TIMEOUT_DE_BOUNCE 250
+// Tempo em milisegundos até que uma edição volte ao estado inicial
+#define TIMEOUTEDICAO 10*1000
+// Tempo em milisegundos de duração do alarme
+#define DURACAO_ALARME 500
+
+
+/***CÓDIGO PROVIDO***/
 /* Define shift register pins used for seven segment display */
 #define LATCH_DIO 4
 #define CLK_DIO 7
 #define DATA_DIO 8
 
 /*Parte do Display*/
-/* Segment byte maps for numbers 0 to 9 */
+/* Segment byte maps for numbers 0 to 9 */ // Adição de um décimo elemento para poder apagar os LEDs
 const byte SEGMENT_MAP[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90, 0XFF};
 /* Byte maps to select digit 1 to 4 */
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
+
+
+/* Write a decimal number between 0 and 9 to one of the 4 digits of the display */
+void WriteNumberToSegment(byte Segment, byte Value) {
+  digitalWrite(LATCH_DIO,LOW);
+  shiftOut(DATA_DIO, CLK_DIO, MSBFIRST, SEGMENT_MAP[Value]);
+  shiftOut(DATA_DIO, CLK_DIO, MSBFIRST, SEGMENT_SELECT[Segment] );
+  digitalWrite(LATCH_DIO,HIGH);
+}
 /******************/
 
+// Variáveis para controle do bounce
 bool debounce[3] = {true,true,true};
-float timeDebounce[3] = {600,600,600};
-int state = -1;
-int statesLeds[6] = {LED1,LED2,LED3,LED4};
-Horario horarioAtual(0,0);
-Horario alarmeAtual(12,36);
-bool mudaHoras = true;
-unsigned long tempo = 0;
-unsigned long tempoBuzzer = 0;
-unsigned long ultimaEdicao = 0;
-bool alarmeTocando = false;
+float timeDebounce[3] = {500,500,500};
 
+/* Variáveis de estado */
+
+// Modo atual do relógio
+// -1: Mostrar horário, alarme desligado
+//  0: Mostrar horário, alarme ligado
+//  1: Mostrar horário do alarme
+//  2: Edição do horário
+//  3: Edição do horário de alarme
+int modoAtual = -1;
+int estadoDosLeds[6] = {LED1,LED2,LED3,LED4};
+
+Horario horarioAtual(0,0);
+Horario alarmeAtual(6,0);
+
+// True quando estamos editando horas, False quando estamos editando minutos
+bool mudaHoras = true;
+
+// Última vez que os minutos foram alterados
+unsigned long referenciaTemporal = 0;
+// Última vez que o alarme foi ligado
+unsigned long tempoBuzzer = 0;
+// Última vez que se fez alguma alteração no horário ou no horário do alarme
+unsigned long tempoDaUltimaEdicao = 0;
+
+bool alarmeTocando = false;
+// Quantas edições ininterruptas aconteceram
 int edicoesSeguidas = 0;
 bool modoAvancoRapido = false;
 
@@ -42,26 +84,18 @@ void setup() {
 
   for(int i = 0; i < 4; i++)
   {
-      pinMode(statesLeds[i], OUTPUT);
-      digitalWrite(statesLeds[i],OFF);
+      pinMode(estadoDosLeds[i], OUTPUT);
+      digitalWrite(estadoDosLeds[i],OFF);
   }
 
   mostraHorario(horarioAtual);
-  Serial.begin(9600);
-  pinMode(BUZZER,OUTPUT);
-  digitalWrite(BUZZER,HIGH);
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, OFF);
  
 }
 
-/* Write a decimal number between 0 and 9 to one of the 4 digits of the display */
-void WriteNumberToSegment(byte Segment, byte Value) {
-  digitalWrite(LATCH_DIO,LOW);
-  shiftOut(DATA_DIO, CLK_DIO, MSBFIRST, SEGMENT_MAP[Value]);
-  shiftOut(DATA_DIO, CLK_DIO, MSBFIRST, SEGMENT_SELECT[Segment] );
-  digitalWrite(LATCH_DIO,HIGH);
-}
-
-
+// Essa função retorna true caso tenha-se passado tempo suficiente para
+// considerar que houve novo pressionamento e false caso contrário
 bool bouncing(float timeDebounce)
 {
   int fatorRapidez;
@@ -69,7 +103,7 @@ bool bouncing(float timeDebounce)
     fatorRapidez = 2;
   else
     fatorRapidez = 1;
-  if(millis() - timeDebounce >= 250 / fatorRapidez)
+  if(millis() - timeDebounce >= TIMEOUT_DE_BOUNCE / fatorRapidez)
   {
     return true;
   }
@@ -109,12 +143,11 @@ void piscaDisplay(Horario horario)
 
 void atualizaHorario()
 {
-  unsigned long now = millis();
-  //TODO: Mudar para 60 segundos ao inves de 10
-  if((now - tempo) > SEG )
+  unsigned long agora = millis();
+  if((agora - referenciaTemporal) > MIN )
   {
     horarioAtual.avancaMinuto(true);
-    tempo = now;
+    referenciaTemporal = agora;
   }
 }
 
@@ -122,16 +155,17 @@ void checaAlarme()
 {
   if(alarmeTocando)
   {
-    if(millis() - tempoBuzzer > 500)
+    if(millis() - tempoBuzzer > DURACAO_ALARME)
     {
-        digitalWrite(BUZZER, HIGH); 
+        digitalWrite(BUZZER, OFF); 
         alarmeTocando = false;
     }
   }
 }
+
 void editaHorario(Horario& horario)
 {
-  if(digitalRead(BUT2) == LOW && debounce[1])
+  if(digitalRead(BUT2) == ON && debounce[1])
   {
     if (mudaHoras)
     {
@@ -144,12 +178,12 @@ void editaHorario(Horario& horario)
     unsigned long agora = millis();
     timeDebounce[1] = agora;
     debounce[1] = false;
-    ultimaEdicao = agora;
+    tempoDaUltimaEdicao = agora;
     edicoesSeguidas ++;
     if(edicoesSeguidas > 10)
       modoAvancoRapido = true;
   }
-  else if(digitalRead(BUT2) == HIGH && !debounce[1])
+  else if(digitalRead(BUT2) == OFF && !debounce[1])
   {
     edicoesSeguidas = 0;
     modoAvancoRapido = false;
@@ -158,9 +192,9 @@ void editaHorario(Horario& horario)
 
 void voltaAoEstadoInicial()
 {
-    if(state >= 0)
-      digitalWrite(statesLeds[state],OFF);
-    state = -1;
+    if(modoAtual >= 0)
+      digitalWrite(estadoDosLeds[modoAtual],OFF);
+    modoAtual = -1;
 }
 
 void loop() {
@@ -170,10 +204,10 @@ void loop() {
   {
     debounce[i] = bouncing(timeDebounce[i]);
   }
+  // Botão 3 + Botão 1 voltam ao modo inicial
   // Nesse caso o debounce não é um problema
-  if(digitalRead(BUT3) == LOW && digitalRead(BUT1) == LOW)
+  if(digitalRead(BUT3) == ON && digitalRead(BUT1) == ON)
   {
-    //Não funcionando ainda
     mostraHorario(horarioAtual);
     voltaAoEstadoInicial();
     timeDebounce[0] = millis();
@@ -181,37 +215,42 @@ void loop() {
     timeDebounce[2] = millis();
     debounce[2] = false;
   }
-  else if(digitalRead(BUT3) == LOW && debounce[2] )
+  // Botão 3 altera o modo
+  else if(digitalRead(BUT3) == ON && debounce[2] )
   {
-    if(state < 0)
+    if(modoAtual < 0)
     {
-      state++;
-      digitalWrite(statesLeds[state],ON);
+      modoAtual++;
+      digitalWrite(estadoDosLeds[modoAtual],ON);
     }
-    else if(state < 3)
+    else if(modoAtual < 3)
     {
-      digitalWrite(statesLeds[state],OFF);
-      state++;    
-      digitalWrite(statesLeds[state],ON);
-      if(state > 1)
-        ultimaEdicao = millis();
+      digitalWrite(estadoDosLeds[modoAtual],OFF);
+      modoAtual++;    
+      digitalWrite(estadoDosLeds[modoAtual],ON);
+      if(modoAtual > 1)
+        tempoDaUltimaEdicao = millis();
     }
     else
     {
-      state = -1;
-      digitalWrite(statesLeds[3],OFF);
+      modoAtual = -1;
+      digitalWrite(estadoDosLeds[3],OFF);
     }
     timeDebounce[2] = millis();
     debounce[2] = false;
   }
-  else if(digitalRead(BUT1) == LOW && debounce[0] )
+  // botão 1 alterna entre edição de horas e edição de minutos
+  else if(digitalRead(BUT1) == ON && debounce[0] )
   {
-    mudaHoras= !mudaHoras;
-    timeDebounce[0] = millis();
-    debounce[0] = false;
+    if(modoAtual >1)
+    {
+      mudaHoras= !mudaHoras;
+      timeDebounce[0] = millis();
+      debounce[0] = false;
+    }
   }
   //Switch para saber em que estado está
-  switch(state)
+  switch(modoAtual)
   {
     case -1:
       mostraHorario(horarioAtual);
@@ -220,7 +259,7 @@ void loop() {
       mostraHorario(horarioAtual);
       if(alarmeAtual == horarioAtual)
       {
-        digitalWrite(BUZZER, LOW); 
+        digitalWrite(BUZZER, ON); 
         alarmeTocando = true;
         tempoBuzzer = millis();
       }
@@ -231,13 +270,13 @@ void loop() {
     case 2:
       piscaDisplay(horarioAtual);
       editaHorario(horarioAtual);
-      if(millis() - ultimaEdicao > TIMEOUTEDICAO)
+      if(millis() - tempoDaUltimaEdicao > TIMEOUTEDICAO)
         voltaAoEstadoInicial();
       break;
      case 3:
       piscaDisplay(alarmeAtual);
       editaHorario(alarmeAtual);
-      if(millis() - ultimaEdicao > TIMEOUTEDICAO)
+      if(millis() - tempoDaUltimaEdicao > TIMEOUTEDICAO)
         voltaAoEstadoInicial();
       break;
     default:
