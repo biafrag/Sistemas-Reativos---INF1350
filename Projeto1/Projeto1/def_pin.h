@@ -6,6 +6,7 @@
 #define BUZZER 3
 
 #define SEG 1000*2 
+#define TIMEOUTEDICAO 10*1000
 
 //Definindo os Botões
 #define BUT1 A1

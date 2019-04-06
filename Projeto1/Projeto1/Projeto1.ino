@@ -22,6 +22,7 @@ Horario alarmeAtual(12,36);
 bool mudaHoras = true;
 unsigned long tempo = 0;
 unsigned long tempoBuzzer = 0;
+unsigned long ultimaEdicao = 0;
 bool alarmeTocando = false;
 
 void setup() {
@@ -130,12 +131,22 @@ void editaHorario(Horario& horario)
     }
     else
     {
-      horario.avancaMinuto();
+      horario.avancaMinuto(false);
     }
-    timeDebounce[1] = millis();
+    unsigned long agora = millis();
+    timeDebounce[1] = agora;
     debounce[1] = false;
+    ultimaEdicao = agora;
   }
 }
+
+void voltaAoEstadoInicial()
+{
+    if(state >= 0)
+      digitalWrite(statesLeds[state],OFF);
+    state = -1;
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
   atualizaHorario();
@@ -143,11 +154,12 @@ void loop() {
   {
     debounce[i] = bouncing(timeDebounce[i]);
   }
-  if(digitalRead(BUT3) == LOW && debounce[2] && digitalRead(BUT1) == LOW && debounce[0] )
+  // Nesse caso o debounce não é um problema
+  if(digitalRead(BUT3) == LOW && digitalRead(BUT1) == LOW)
   {
     //Não funcionando ainda
     mostraHorario(horarioAtual);
-    state = -1;
+    voltaAoEstadoInicial();
     timeDebounce[0] = millis();
     debounce[0] = false;
     timeDebounce[2] = millis();
@@ -165,6 +177,8 @@ void loop() {
       digitalWrite(statesLeds[state],OFF);
       state++;    
       digitalWrite(statesLeds[state],ON);
+      if(state > 1)
+        ultimaEdicao = millis();
     }
     else
     {
@@ -201,10 +215,14 @@ void loop() {
     case 2:
       piscaDisplay(horarioAtual);
       editaHorario(horarioAtual);
+      if(millis() - ultimaEdicao > TIMEOUTEDICAO)
+        voltaAoEstadoInicial();
       break;
      case 3:
       piscaDisplay(alarmeAtual);
       editaHorario(alarmeAtual);
+      if(millis() - ultimaEdicao > TIMEOUTEDICAO)
+        voltaAoEstadoInicial();
       break;
     default:
       mostraHorario(horarioAtual);
