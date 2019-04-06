@@ -25,6 +25,9 @@ unsigned long tempoBuzzer = 0;
 unsigned long ultimaEdicao = 0;
 bool alarmeTocando = false;
 
+int edicoesSeguidas = 0;
+bool modoAvancoRapido = false;
+
 void setup() {
 
   /* Set DIO pins to outputs */
@@ -61,7 +64,12 @@ void WriteNumberToSegment(byte Segment, byte Value) {
 
 bool bouncing(float timeDebounce)
 {
-  if(millis() - timeDebounce >= 250)
+  int fatorRapidez;
+  if(modoAvancoRapido)
+    fatorRapidez = 2;
+  else
+    fatorRapidez = 1;
+  if(millis() - timeDebounce >= 250 / fatorRapidez)
   {
     return true;
   }
@@ -78,7 +86,7 @@ void mostraHorario(Horario horario)
 
 void piscaDisplay(Horario horario)
 {
-  if((millis()/500)%3)
+  if((millis()/250)%3)
   {
     mostraHorario(horario);
   }
@@ -137,6 +145,14 @@ void editaHorario(Horario& horario)
     timeDebounce[1] = agora;
     debounce[1] = false;
     ultimaEdicao = agora;
+    edicoesSeguidas ++;
+    if(edicoesSeguidas > 10)
+      modoAvancoRapido = true;
+  }
+  else if(digitalRead(BUT2) == HIGH && !debounce[1])
+  {
+    edicoesSeguidas = 0;
+    modoAvancoRapido = false;
   }
 }
 
