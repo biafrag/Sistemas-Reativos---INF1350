@@ -14,7 +14,6 @@
 // Tempo em milisegundos de duração do alarme
 #define DURACAO_ALARME 500
 
-
 /***CÓDIGO PROVIDO***/
 /* Define shift register pins used for seven segment display */
 #define LATCH_DIO 4
@@ -99,7 +98,8 @@ void setup() {
 bool bouncing(float timeDebounce)
 {
   int fatorRapidez;
-  if(modoAvancoRapido)
+  // Consideração que pressionamentos ocorrem duas vezes mais rápido no modo de avanço rápido
+  if(modoAvancoRapido) 
     fatorRapidez = 2;
   else
     fatorRapidez = 1;
@@ -110,6 +110,7 @@ bool bouncing(float timeDebounce)
   return false;
 }
 
+// Função utilizada para escrever um determinado horário no display de sete segmentos
 void mostraHorario(Horario horario)
 {
   WriteNumberToSegment(0,horario.getHora()/10);
@@ -120,51 +121,63 @@ void mostraHorario(Horario horario)
 
 void piscaDisplay(Horario horario)
 {
+  // Piscar será estar ligado dois terços do tempo e desligado um terço.
+  // A divisão por 250 serve para tornar a frequência de piscagem menor
   if((millis()/250)%3)
   {
     mostraHorario(horario);
   }
   else
   {
-    WriteNumberToSegment(0, 10);
+    // Quando o segundo parâmetro é 10 nós apagamos os números do display
+    WriteNumberToSegment(0, 10); 
   }
   if(mudaHoras)
-  {
+  { 
+    // Se estamos editando as horas, os minutos devem estar sempre ligados
     WriteNumberToSegment(2,horario.getMinuto()/10);
     WriteNumberToSegment(3,horario.getMinuto()%10);
   }
   else
   {
+     // Ao editar os minutos, as horas devem permanecer sempre ligadas
      WriteNumberToSegment(0,horario.getHora()/10);
      WriteNumberToSegment(1,horario.getHora()%10);
   }
   
 }
 
+// Função responsável pela passagem dos minutos
 void atualizaHorario()
 {
   unsigned long agora = millis();
   if((agora - referenciaTemporal) > MIN )
   {
-    horarioAtual.avancaMinuto(true);
+    // parâmetro da função é para propagar a alteração para o valor de horas também
+    horarioAtual.avancaMinuto(true); 
     referenciaTemporal = agora;
   }
 }
 
+// Função responsável por monitorar o tempo de duração do alame
 void checaAlarme()
 {
   if(alarmeTocando)
   {
+    // Se já se passou o tempo de duração do alarme
     if(millis() - tempoBuzzer > DURACAO_ALARME)
     {
+        // desligamos o alarme
         digitalWrite(BUZZER, OFF); 
         alarmeTocando = false;
     }
   }
 }
 
+// Função usada para edição de um dado horário
 void editaHorario(Horario& horario)
 {
+  // Botão está pressionado e já passou o período que arbitramos de bounce
   if(digitalRead(BUT2) == ON && debounce[1])
   {
     if (mudaHoras)
@@ -173,18 +186,22 @@ void editaHorario(Horario& horario)
     }
     else
     {
-      horario.avancaMinuto(false);
+      // Nesse caso não queremos propagar a edição 
+      // dos minutos para o valor das horas
+      horario.avancaMinuto(false); 
     }
     unsigned long agora = millis();
-    timeDebounce[1] = agora;
+    timeDebounce[1] = agora; // atualização dos tempos de pressionamento do botão 2
     debounce[1] = false;
-    tempoDaUltimaEdicao = agora;
-    edicoesSeguidas ++;
+    // referência para saber quanto tempo se passou desde a última edição
+    tempoDaUltimaEdicao = agora;  
+    edicoesSeguidas ++; // controle do modo de edição rápido
     if(edicoesSeguidas > 10)
       modoAvancoRapido = true;
   }
   else if(digitalRead(BUT2) == OFF && !debounce[1])
   {
+    // Soltar o botão faz o relógio sair do modo de avanço rápido
     edicoesSeguidas = 0;
     modoAvancoRapido = false;
   }
@@ -198,19 +215,19 @@ void voltaAoEstadoInicial()
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  atualizaHorario();
+  atualizaHorario(); // faz passar os minutos
   for(int i = 0; i < 3 ; i++)
-  {
+  { 
+    // atualiza se o período de bouncing já passou
     debounce[i] = bouncing(timeDebounce[i]);
   }
   // Botão 3 + Botão 1 voltam ao modo inicial
-  // Nesse caso o debounce não é um problema
+  // Nesse caso o debounce não é um problema a ser testado
   if(digitalRead(BUT3) == ON && digitalRead(BUT1) == ON)
   {
     mostraHorario(horarioAtual);
     voltaAoEstadoInicial();
-    timeDebounce[0] = millis();
+    timeDebounce[0] = millis(); // atualização dos tempos de pressionamento dos botões 1 e 3
     debounce[0] = false;
     timeDebounce[2] = millis();
     debounce[2] = false;
@@ -229,6 +246,7 @@ void loop() {
       modoAtual++;    
       digitalWrite(estadoDosLeds[modoAtual],ON);
       if(modoAtual > 1)
+        // Entrar no modo de edição deve resetar o tempo de tolerância
         tempoDaUltimaEdicao = millis();
     }
     else
@@ -236,13 +254,13 @@ void loop() {
       modoAtual = -1;
       digitalWrite(estadoDosLeds[3],OFF);
     }
-    timeDebounce[2] = millis();
+    timeDebounce[2] = millis(); // atualização do tempo de pressionamento do botão 3
     debounce[2] = false;
   }
-  // botão 1 alterna entre edição de horas e edição de minutos
+  // Botão 1 alterna entre edição de horas e edição de minutos
   else if(digitalRead(BUT1) == ON && debounce[0] )
   {
-    if(modoAtual >1)
+    if(modoAtual >1) // modos 2 e 3 são de edição
     {
       mudaHoras= !mudaHoras;
       timeDebounce[0] = millis();
@@ -270,12 +288,14 @@ void loop() {
     case 2:
       piscaDisplay(horarioAtual);
       editaHorario(horarioAtual);
+	  // Controle do tempo transcorrido desde a última edição
       if(millis() - tempoDaUltimaEdicao > TIMEOUTEDICAO)
         voltaAoEstadoInicial();
       break;
      case 3:
       piscaDisplay(alarmeAtual);
       editaHorario(alarmeAtual);
+	  // Controle do tempo transcorrido desde a última edição
       if(millis() - tempoDaUltimaEdicao > TIMEOUTEDICAO)
         voltaAoEstadoInicial();
       break;
