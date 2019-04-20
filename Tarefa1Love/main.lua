@@ -26,7 +26,7 @@ return {
 }
 end
 function love.load()
-  ret = retangulo(xinit,yinit+100,200,300)
+  ret = retangulo(xinit,yinit+150,200,300)
   ret2 = retangulo(500,40,60,70)
   retangulos = {retangulo(100,70,60,70),retangulo(200,20,60,70),retangulo(300,60,60,70)}
 end
